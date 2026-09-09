@@ -16,6 +16,10 @@ from app.models import User, RefreshToken
 from datetime import datetime, timezone
 import hashlib
 
+from app.schemas import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest
+from jose import jwt, JWTError
+from app.tokens import PUBLIC_KEY, ALGORITHM
+
 MAX_FAILED_ATTEMPTS = 5
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -77,3 +81,54 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
+    try:
+        decoded = jwt.decode(payload.refresh_token, PUBLIC_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    if decoded.get("type") != "refresh":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+
+    token_hash = hash_token(payload.refresh_token)
+    stored = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+
+    if not stored:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not recognized")
+
+    if stored.revoked_at is not None:
+        # REUSE DETECTED — a previously-rotated token was presented again.
+        # Revoke the entire family: every token derived from the same original login.
+        db.query(RefreshToken).filter(
+            RefreshToken.family_id == stored.family_id,
+            RefreshToken.revoked_at.is_(None),
+        ).update({"revoked_at": datetime.now(timezone.utc)})
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token reuse detected — session revoked")
+
+    if stored.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    # Rotate: mark this token used, issue a new pair in the same family
+    stored.revoked_at = datetime.now(timezone.utc)
+
+    user_id = decoded["sub"]
+    family_id = stored.family_id
+
+    new_access = create_access_token(user_id=user_id)
+    new_refresh, new_expires_at = create_refresh_token(user_id=user_id, family_id=str(family_id))
+
+    db.add(RefreshToken(
+        id=uuid.uuid4(),
+        user_id=stored.user_id,
+        token_hash=hash_token(new_refresh),
+        family_id=family_id,
+        expires_at=new_expires_at,
+    ))
+    db.commit()
+
+    return TokenResponse(access_token=new_access, refresh_token=new_refresh)
