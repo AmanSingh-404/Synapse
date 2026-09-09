@@ -22,6 +22,8 @@ from app.schemas import RegisterRequest, LoginRequest, RefreshRequest, TokenResp
 from app.security import hash_password, verify_password
 from app.tokens import create_access_token, create_refresh_token, PUBLIC_KEY, ALGORITHM
 
+from app.tokens import create_access_token, create_refresh_token, verify_access_token, PUBLIC_KEY, ALGORITHM
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 auth_logger = logging.getLogger("synapse.auth")
@@ -212,3 +214,7 @@ def github_callback(code: str, db: Session = Depends(get_db)):
         auth_logger.info(f"github oauth success user_id={user.id}")
 
     return {"message": "GitHub connected successfully"}
+
+@router.get("/me")
+def me(user_id: str = Depends(verify_access_token)):
+    return {"user_id": user_id}
