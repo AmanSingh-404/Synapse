@@ -10,6 +10,12 @@ from jose import jwt, JWTError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+import httpx
+from fastapi.responses import RedirectResponse
+from cryptography.fernet import Fernet
+
+from app.config import settings
+
 from app.db import get_db
 from app.models import User, RefreshToken
 from app.schemas import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse
@@ -155,3 +161,54 @@ def logout(request: Request, payload: RefreshRequest, db: Session = Depends(get_
         auth_logger.info(f"logout success user_id={stored.user_id}")
 
     return None
+
+GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
+GITHUB_CALLBACK_REDIRECT = "http://127.0.0.1:8001/auth/github/callback"
+
+
+@router.get("/github/login")
+def github_login():
+    params = (
+        f"client_id={settings.github_client_id}"
+        f"&redirect_uri={GITHUB_CALLBACK_REDIRECT}"
+        f"&scope=repo"
+    )
+    return RedirectResponse(url=f"{GITHUB_AUTHORIZE_URL}?{params}")
+
+
+@router.get("/github/callback")
+def github_callback(code: str, db: Session = Depends(get_db)):
+    # Exchange the code for a GitHub access token
+    with httpx.Client() as client:
+        response = client.post(
+            GITHUB_TOKEN_URL,
+            data={
+                "client_id": settings.github_client_id,
+                "client_secret": settings.github_client_secret,
+                "code": code,
+            },
+            headers={"Accept": "application/json"},
+        )
+    data = response.json()
+    github_token = data.get("access_token")
+
+    if not github_token:
+        auth_logger.warning(f"github oauth failed - no token in response: {data}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub OAuth exchange failed")
+
+    # Encrypt before storing
+    fernet = Fernet(settings.fernet_key.encode())
+    encrypted_token = fernet.encrypt(github_token.encode()).decode()
+
+    # NOTE: this stores the token against a hardcoded test user for now —
+    # once the frontend exists, this will use the currently logged-in user
+    # (via a state param round-tripped through the OAuth flow, tying it to
+    # their session). Flag for Phase 4 wiring.
+    user = db.query(User).filter(User.email == "test@example.com").first()
+    if user:
+        user.encrypted_github_token = encrypted_token
+        db.commit()
+        auth_logger.info(f"github oauth success user_id={user.id}")
+
+    return {"message": "GitHub connected successfully"}

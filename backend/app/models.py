@@ -23,6 +23,7 @@ class User(Base):
     failed_attempts = Column(Integer, default=0, nullable=False)
 
     refresh_tokens = relationship("RefreshToken", back_populates="user")
+    encrypted_github_token = Column(String, nullable=True)
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
