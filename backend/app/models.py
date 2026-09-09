@@ -37,3 +37,16 @@ class RefreshToken(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     user = relationship("User", back_populates="refresh_tokens")
+
+class Repo(Base):
+    __tablename__ = "repos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    github_url = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    local_path = Column(String, nullable=True)
+    status = Column(String, default="pending", nullable=False)  # pending, cloned, parsing, indexed, failed
+    node_count = Column(Integer, default=0, nullable=False)
+    edge_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
