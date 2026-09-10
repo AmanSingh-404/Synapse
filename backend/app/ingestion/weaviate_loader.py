@@ -1,5 +1,6 @@
 import weaviate
 from sentence_transformers import SentenceTransformer
+from weaviate.util import generate_uuid5
 
 WEAVIATE_URL = "http://127.0.0.1:8081"
 
@@ -41,6 +42,7 @@ class WeaviateLoader:
             for chunk in chunks:
                 vector = model.encode(chunk["text"]).tolist()
                 batch.add_object(
+                    uuid=generate_uuid5(chunk["node_id"]),
                     properties={
                         "node_id": chunk["node_id"],
                         "text": chunk["text"],

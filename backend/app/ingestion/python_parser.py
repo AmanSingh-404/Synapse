@@ -1,6 +1,11 @@
 import ast
 import os
-import uuid
+import hashlib
+
+
+def make_node_id(repo_id: str, file_path: str, name: str, node_type: str) -> str:
+    raw = f"{repo_id}:{file_path}:{node_type}:{name}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
 class ParsedNode:
@@ -20,7 +25,7 @@ class ParsedEdge:
         self.type = edge_type  # "calls", "imports", "inherits"
 
 
-def parse_python_file(file_path, repo_root):
+def parse_python_file(file_path, repo_root, repo_id):
     """Parse a single .py file, returning (nodes, edges)."""
     nodes = []
     edges = []
@@ -35,7 +40,7 @@ def parse_python_file(file_path, repo_root):
     except SyntaxError:
         return nodes, edges  # skip unparseable files
 
-    file_node_id = str(uuid.uuid4())
+    file_node_id = make_node_id(repo_id, relative_path, relative_path, "file")
     nodes.append(ParsedNode(
         node_id=file_node_id,
         node_type="file",
@@ -47,7 +52,7 @@ def parse_python_file(file_path, repo_root):
 
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
-            func_id = str(uuid.uuid4())
+            func_id = make_node_id(repo_id, relative_path, node.name, "function")
             nodes.append(ParsedNode(
                 node_id=func_id,
                 node_type="function",
@@ -62,7 +67,7 @@ def parse_python_file(file_path, repo_root):
                     edges.append(ParsedEdge(func_id, sub.func.id, "calls"))
 
         elif isinstance(node, ast.ClassDef):
-            class_id = str(uuid.uuid4())
+            class_id = make_node_id(repo_id, relative_path, node.name, "class")
             nodes.append(ParsedNode(
                 node_id=class_id,
                 node_type="class",
@@ -87,7 +92,7 @@ def parse_python_file(file_path, repo_root):
     return nodes, edges
 
 
-def parse_repo(repo_root):
+def parse_repo(repo_root, repo_id):
     """Walk all .py files in the repo, return combined (nodes, edges)."""
     all_nodes = []
     all_edges = []
@@ -99,7 +104,7 @@ def parse_repo(repo_root):
         for filename in filenames:
             if filename.endswith(".py"):
                 file_path = os.path.join(dirpath, filename)
-                nodes, edges = parse_python_file(file_path, repo_root)
+                nodes, edges = parse_python_file(file_path, repo_root, repo_id)
                 all_nodes.extend(nodes)
                 all_edges.extend(edges)
 

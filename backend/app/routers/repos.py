@@ -95,7 +95,7 @@ def ingest_repo(
         # Stage 1: parsing
         repo.status = "parsing"
         db.commit()
-        nodes, edges = parse_repo(repo.local_path)
+        nodes, edges = parse_repo(repo.local_path, repo_id)
 
         # Stage 2: graph build
         repo.status = "building_graph"
