@@ -15,6 +15,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "gitpython>=3.1.62",
     "httpx>=0.28.1",
+    "neo4j>=6.3.0",
     "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.15.0",
     "python-jose[cryptography]>=3.5.0",
