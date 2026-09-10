@@ -245,4 +245,4 @@ def github_callback(code: str, state: str, db: Session = Depends(get_db)):
         db.commit()
         auth_logger.info(f"github oauth success user_id={user.id}")
 
-    return RedirectResponse(url=f"{FRONTEND_URL}/dashboard?github=connected")
+    return RedirectResponse(url=f"{FRONTEND_URL}/onboarding?github=connected")

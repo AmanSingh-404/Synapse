@@ -24,16 +24,17 @@ export default function OnboardingPage() {
   }, [loading, userId, router]);
 
   useEffect(() => {
+    if (loading || !userId) return; // wait for auth to resolve first
+
     const githubParam = searchParams.get("github");
     if (githubParam === "connected") {
       setGithubConnected(true);
       loadRepos();
     } else {
-      // Check if GitHub is already connected from a previous session
       checkGithubStatus();
     }
-  }, [searchParams]);
-
+  }, [loading, userId, searchParams]);
+  
   const checkGithubStatus = async () => {
     try {
       const data = await api.listGithubRepos();

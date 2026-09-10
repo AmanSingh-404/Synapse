@@ -19,6 +19,12 @@ from app.ingestion.chunker import extract_chunks
 from app.ingestion.neo4j_loader import Neo4jLoader
 from app.ingestion.weaviate_loader import WeaviateLoader
 
+from neo4j import GraphDatabase
+
+NEO4J_URI = "bolt://127.0.0.1:7688"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "synapse123"
+
 router = APIRouter(prefix="/repos", tags=["repos"])
 repo_logger = logging.getLogger("synapse.repos")
 
@@ -174,3 +180,49 @@ def list_github_repos(
         {"name": r["full_name"], "url": r["html_url"], "private": r["private"], "updated_at": r["updated_at"]}
         for r in repos
     ]
+
+
+@router.get("/{repo_id}/graph")
+def get_repo_graph(
+    repo_id: str,
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    repo = db.query(Repo).filter(Repo.id == repo_id, Repo.user_id == user_id).first()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
+
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    nodes = []
+    edges = []
+
+    with driver.session() as session:
+        node_result = session.run(
+            "MATCH (n {repo_id: $repo_id}) RETURN n.id AS id, n.name AS name, n.type AS type, n.file_path AS file_path LIMIT 300",
+            repo_id=repo_id,
+        )
+        for record in node_result:
+            nodes.append({
+                "id": record["id"],
+                "name": record["name"],
+                "type": record["type"],
+                "file_path": record["file_path"],
+            })
+
+        edge_result = session.run(
+            """
+            MATCH (a {repo_id: $repo_id})-[r]->(b {repo_id: $repo_id})
+            RETURN a.id AS source, b.id AS target, type(r) AS rel_type
+            LIMIT 500
+            """,
+            repo_id=repo_id,
+        )
+        for record in edge_result:
+            edges.append({
+                "source": record["source"],
+                "target": record["target"],
+                "type": record["rel_type"],
+            })
+
+    driver.close()
+    return {"nodes": nodes, "edges": edges}

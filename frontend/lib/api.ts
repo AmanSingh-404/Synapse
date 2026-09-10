@@ -60,6 +60,8 @@ export const api = {
 
     listGithubRepos: () => request("/repos/github/list"),
 
+  getRepoGraph: (repoId: string) => request(`/repos/${repoId}/graph`),
+
   ingestRepo: (repoId: string) =>
     request(`/repos/${repoId}/ingest`, { method: "POST" }),
 

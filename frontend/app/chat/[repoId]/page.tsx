@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
+import GraphPanel from "@/components/GraphPanel";
 
 type Message = {
   role: "user" | "assistant";
@@ -19,6 +20,7 @@ export default function ChatPage() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [latestTouchedNodes, setLatestTouchedNodes] = useState<string[]>([]);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,7 +33,7 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleAsk = async (e: React.FormEvent) => {
+   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || asking) return;
 
@@ -52,6 +54,7 @@ export default function ChatPage() {
           touchedNodeIds: result.touched_node_ids,
         },
       ]);
+      setLatestTouchedNodes(result.touched_node_ids);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Query failed");
     } finally {
@@ -61,59 +64,65 @@ export default function ChatPage() {
 
   if (loading || !userId) return null;
 
-  return (
-    <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
-      <header className="border-b border-neutral-800 px-6 py-4">
-        <h1 className="text-lg font-medium">Chat with your codebase</h1>
-        <p className="text-xs text-neutral-500">repo: {repoId}</p>
-      </header>
+    return (
+    <div className="h-screen bg-neutral-950 text-white flex">
+      <div className="w-1/2 flex flex-col border-r border-neutral-800">
+        <header className="border-b border-neutral-800 px-6 py-4">
+          <h1 className="text-lg font-medium">Chat with your codebase</h1>
+          <p className="text-xs text-neutral-500">repo: {repoId}</p>
+        </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 max-w-3xl mx-auto w-full">
-        {messages.length === 0 && (
-          <p className="text-neutral-500 text-sm">
-            Ask something about this repo — e.g. &quot;What does the Session class do?&quot; or &quot;Who calls forge_tool?&quot;
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
-            <div
-              className={`inline-block max-w-[80%] px-4 py-2 rounded-lg text-sm whitespace-pre-wrap ${
-                msg.role === "user" ? "bg-white text-black" : "bg-neutral-900 border border-neutral-800"
-              }`}
-            >
-              {msg.content}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {messages.length === 0 && (
+            <p className="text-neutral-500 text-sm">
+              Ask something about this repo — e.g. &quot;What does the Session class do?&quot; or &quot;Who calls forge_tool?&quot;
+            </p>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
+              <div
+                className={`inline-block max-w-[90%] px-4 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                  msg.role === "user" ? "bg-white text-black" : "bg-neutral-900 border border-neutral-800"
+                }`}
+              >
+                {msg.content}
+              </div>
+              {msg.role === "assistant" && msg.intent && (
+                <p className="text-xs text-neutral-600 mt-1">
+                  intent: {msg.intent}
+                  {msg.touchedNodeIds && msg.touchedNodeIds.length > 0 && (
+                    <> · touched: {msg.touchedNodeIds.join(", ")}</>
+                  )}
+                </p>
+              )}
             </div>
-            {msg.role === "assistant" && msg.intent && (
-              <p className="text-xs text-neutral-600 mt-1">
-                intent: {msg.intent}
-                {msg.touchedNodeIds && msg.touchedNodeIds.length > 0 && (
-                  <> · touched: {msg.touchedNodeIds.join(", ")}</>
-                )}
-              </p>
-            )}
-          </div>
-        ))}
-        {asking && <p className="text-neutral-500 text-sm">Thinking...</p>}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <div ref={messagesEndRef} />
+          ))}
+          {asking && <p className="text-neutral-500 text-sm">Thinking...</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form onSubmit={handleAsk} className="border-t border-neutral-800 p-4 flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about this codebase..."
+            className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded"
+            disabled={asking}
+          />
+          <button
+            type="submit"
+            disabled={asking || !input.trim()}
+            className="px-4 py-2 bg-white text-black rounded font-medium disabled:opacity-50"
+          >
+            Ask
+          </button>
+        </form>
       </div>
 
-      <form onSubmit={handleAsk} className="border-t border-neutral-800 p-4 flex gap-2 max-w-3xl mx-auto w-full">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about this codebase..."
-          className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded"
-          disabled={asking}
-        />
-        <button
-          type="submit"
-          disabled={asking || !input.trim()}
-          className="px-4 py-2 bg-white text-black rounded font-medium disabled:opacity-50"
-        >
-          Ask
-        </button>
-      </form>
+      <div className="w-1/2">
+        <GraphPanel repoId={repoId} touchedNodeIds={latestTouchedNodes} />
+      </div>
     </div>
   );
 }
