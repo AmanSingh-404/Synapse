@@ -62,6 +62,10 @@ export const api = {
 
   getRepoGraph: (repoId: string) => request(`/repos/${repoId}/graph`),
 
+    listRepos: () => request("/repos"),
+
+  resyncRepo: (repoId: string) => request(`/repos/${repoId}/ingest`, { method: "POST" }),
+
   ingestRepo: (repoId: string) =>
     request(`/repos/${repoId}/ingest`, { method: "POST" }),
 

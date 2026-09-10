@@ -226,3 +226,22 @@ def get_repo_graph(
 
     driver.close()
     return {"nodes": nodes, "edges": edges}
+
+@router.get("")
+def list_repos(
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    repos = db.query(Repo).filter(Repo.user_id == user_id).order_by(Repo.created_at.desc()).all()
+    return [
+        {
+            "repo_id": str(r.id),
+            "name": r.name,
+            "github_url": r.github_url,
+            "status": r.status,
+            "node_count": r.node_count,
+            "edge_count": r.edge_count,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in repos
+    ]
