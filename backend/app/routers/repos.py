@@ -14,6 +14,11 @@ from app.models import User, Repo
 from app.tokens import verify_access_token
 from app.config import settings
 
+from app.ingestion.python_parser import parse_repo
+from app.ingestion.chunker import extract_chunks
+from app.ingestion.neo4j_loader import Neo4jLoader
+from app.ingestion.weaviate_loader import WeaviateLoader
+
 router = APIRouter(prefix="/repos", tags=["repos"])
 repo_logger = logging.getLogger("synapse.repos")
 
@@ -70,3 +75,73 @@ def connect_repo(
 
     repo_logger.info(f"repo cloned repo_id={repo_id} name={repo_name}")
     return {"repo_id": str(repo_id), "name": repo_name, "status": "cloned"}
+
+
+
+@router.post("/{repo_id}/ingest")
+def ingest_repo(
+    repo_id: str,
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    repo = db.query(Repo).filter(Repo.id == repo_id, Repo.user_id == user_id).first()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
+
+    if repo.status not in ("cloned", "failed", "indexed"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Repo is currently '{repo.status}'")
+
+    try:
+        # Stage 1: parsing
+        repo.status = "parsing"
+        db.commit()
+        nodes, edges = parse_repo(repo.local_path)
+
+        # Stage 2: graph build
+        repo.status = "building_graph"
+        db.commit()
+        neo4j_loader = Neo4jLoader()
+        neo4j_loader.load_repo(repo_id, nodes, edges)
+        neo4j_loader.close()
+
+        # Stage 3: embedding
+        repo.status = "embedding"
+        db.commit()
+        chunks = extract_chunks(nodes)
+        weaviate_loader = WeaviateLoader()
+        weaviate_loader.load_chunks(repo_id, chunks)
+        weaviate_loader.close()
+
+        # Done
+        repo.status = "indexed"
+        repo.node_count = len(nodes)
+        repo.edge_count = len(edges)
+        db.commit()
+
+        repo_logger.info(f"repo ingested repo_id={repo_id} nodes={len(nodes)} edges={len(edges)}")
+        return {"repo_id": repo_id, "status": "indexed", "node_count": len(nodes), "edge_count": len(edges)}
+
+    except Exception as e:
+        repo.status = "failed"
+        db.commit()
+        repo_logger.error(f"ingestion failed repo_id={repo_id} error={e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ingestion failed")
+
+
+@router.get("/{repo_id}/status")
+def get_repo_status(
+    repo_id: str,
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    repo = db.query(Repo).filter(Repo.id == repo_id, Repo.user_id == user_id).first()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
+
+    return {
+        "repo_id": str(repo.id),
+        "name": repo.name,
+        "status": repo.status,
+        "node_count": repo.node_count,
+        "edge_count": repo.edge_count,
+    }
