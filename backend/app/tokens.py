@@ -57,3 +57,20 @@ def verify_access_token(
         return payload["sub"]
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+def create_oauth_state_token(user_id: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "type": "oauth_state",
+        "iat": now,
+        "exp": now + timedelta(minutes=5),
+    }
+    return jwt.encode(payload, PRIVATE_KEY, algorithm=ALGORITHM)
+
+
+def verify_oauth_state_token(token: str) -> str:
+    payload = jwt.decode(token, PUBLIC_KEY, algorithms=[ALGORITHM])
+    if payload.get("type") != "oauth_state":
+        raise ValueError("Invalid state token type")
+    return payload["sub"]

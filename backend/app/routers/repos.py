@@ -145,3 +145,32 @@ def get_repo_status(
         "node_count": repo.node_count,
         "edge_count": repo.edge_count,
     }
+
+@router.get("/github/list")
+def list_github_repos(
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.encrypted_github_token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub account connected")
+
+    fernet = Fernet(settings.fernet_key.encode())
+    github_token = fernet.decrypt(user.encrypted_github_token.encode()).decode()
+
+    import httpx
+    with httpx.Client() as client:
+        response = client.get(
+            "https://api.github.com/user/repos",
+            headers={"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github+json"},
+            params={"sort": "updated", "per_page": 30},
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch repos from GitHub")
+
+    repos = response.json()
+    return [
+        {"name": r["full_name"], "url": r["html_url"], "private": r["private"], "updated_at": r["updated_at"]}
+        for r in repos
+    ]

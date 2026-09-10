@@ -53,8 +53,12 @@ export const api = {
 
   me: () => request("/auth/me"),
 
+  githubLogin: () => request("/auth/github/login"),
+
   connectRepo: (githubUrl: string) =>
     request("/repos/connect", { method: "POST", body: JSON.stringify({ github_url: githubUrl }) }),
+
+    listGithubRepos: () => request("/repos/github/list"),
 
   ingestRepo: (repoId: string) =>
     request(`/repos/${repoId}/ingest`, { method: "POST" }),

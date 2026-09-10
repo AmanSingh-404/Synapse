@@ -20,6 +20,10 @@ from app.security import hash_password, verify_password
 from app.tokens import create_access_token, create_refresh_token, verify_access_token, PUBLIC_KEY, ALGORITHM
 from app.config import settings
 
+from app.tokens import create_oauth_state_token, verify_oauth_state_token
+
+FRONTEND_URL = "http://127.0.0.1:3001"
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 auth_logger = logging.getLogger("synapse.auth")
@@ -194,18 +198,27 @@ def me(user_id: str = Depends(verify_access_token)):
     return {"user_id": user_id}
 
 
+
+
 @router.get("/github/login")
-def github_login():
+def github_login(user_id: str = Depends(verify_access_token)):
+    state = create_oauth_state_token(user_id)
     params = (
         f"client_id={settings.github_client_id}"
         f"&redirect_uri={GITHUB_CALLBACK_REDIRECT}"
         f"&scope=repo"
+        f"&state={state}"
     )
-    return RedirectResponse(url=f"{GITHUB_AUTHORIZE_URL}?{params}")
+    return {"authorize_url": f"{GITHUB_AUTHORIZE_URL}?{params}"}
 
 
 @router.get("/github/callback")
-def github_callback(code: str, db: Session = Depends(get_db)):
+def github_callback(code: str, state: str, db: Session = Depends(get_db)):
+    try:
+        user_id = verify_oauth_state_token(state)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OAuth state")
+
     with httpx.Client() as client:
         response = client.post(
             GITHUB_TOKEN_URL,
@@ -221,17 +234,15 @@ def github_callback(code: str, db: Session = Depends(get_db)):
 
     if not github_token:
         auth_logger.warning(f"github oauth failed - no token in response: {data}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub OAuth exchange failed")
+        return RedirectResponse(url=f"{FRONTEND_URL}/dashboard?github=failed")
 
     fernet = Fernet(settings.fernet_key.encode())
     encrypted_token = fernet.encrypt(github_token.encode()).decode()
 
-    # NOTE: still stubbed against the test user — needs proper state-param wiring
-    # once the frontend sends an authenticated request into /github/login.
-    user = db.query(User).filter(User.email == "test@example.com").first()
+    user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.encrypted_github_token = encrypted_token
         db.commit()
         auth_logger.info(f"github oauth success user_id={user.id}")
 
-    return {"message": "GitHub connected successfully"}
+    return RedirectResponse(url=f"{FRONTEND_URL}/dashboard?github=connected")
