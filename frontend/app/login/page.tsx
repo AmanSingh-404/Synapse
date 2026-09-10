@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
@@ -23,16 +24,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 p-8 border border-neutral-800 rounded-lg">
-        <h1 className="text-2xl font-semibold">Log in to Synapse</h1>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm space-y-5 p-8 rounded-lg"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+      >
+        <h1 className="text-2xl" style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>
+          Log in to Synapse
+        </h1>
+        {error && <p className="text-sm" style={{ color: "#E5484D" }}>{error}</p>}
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded"
+          className="w-full px-3 py-2 rounded-md text-sm"
+          style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
           required
         />
         <input
@@ -40,14 +48,22 @@ export default function LoginPage() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded"
+          className="w-full px-3 py-2 rounded-md text-sm"
+          style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", color: "var(--color-text)" }}
           required
         />
-        <button type="submit" className="w-full py-2 bg-white text-black rounded font-medium">
+        <button
+          type="submit"
+          className="w-full py-2.5 rounded-md font-medium"
+          style={{ background: "var(--color-accent)", color: "var(--color-accent-text)", fontFamily: "var(--font-display)" }}
+        >
           Log in
         </button>
-        <p className="text-sm text-neutral-400">
-          No account? <a href="/register" className="underline">Register</a>
+        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          No account?{" "}
+          <Link href="/register" style={{ color: "var(--color-accent)" }}>
+            Register
+          </Link>
         </p>
       </form>
     </div>
