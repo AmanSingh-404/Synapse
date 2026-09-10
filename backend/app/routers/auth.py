@@ -3,36 +3,49 @@ import hashlib
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from jose import jwt, JWTError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-
 import httpx
 from fastapi.responses import RedirectResponse
 from cryptography.fernet import Fernet
 
-from app.config import settings
-
 from app.db import get_db
 from app.models import User, RefreshToken
-from app.schemas import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse
+from app.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.security import hash_password, verify_password
-from app.tokens import create_access_token, create_refresh_token, PUBLIC_KEY, ALGORITHM
-
 from app.tokens import create_access_token, create_refresh_token, verify_access_token, PUBLIC_KEY, ALGORITHM
+from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 auth_logger = logging.getLogger("synapse.auth")
 
 MAX_FAILED_ATTEMPTS = 5
+REFRESH_TOKEN_EXPIRE_SECONDS = 14 * 24 * 60 * 60  # 14 days, matches tokens.py
+
+GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
+GITHUB_CALLBACK_REDIRECT = "http://127.0.0.1:8001/auth/github/callback"
 
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def set_refresh_cookie(response: Response, token: str):
+    response.set_cookie(
+        key="refresh_token",
+        value=token,
+        httponly=True,
+        secure=False,  # True in production (requires HTTPS)
+        samesite="lax",
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+        path="/auth",
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -57,7 +70,7 @@ def register(request: Request, payload: RegisterRequest, db: Session = Depends(g
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
 
     if not user:
@@ -93,15 +106,22 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     ))
     db.commit()
 
+    set_refresh_cookie(response, refresh_token)
+
     auth_logger.info(f"login success user_id={user.id}")
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/refresh", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
+    incoming_token = request.cookies.get("refresh_token")
+    if not incoming_token:
+        auth_logger.warning("refresh failed - no cookie provided")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
+
     try:
-        decoded = jwt.decode(payload.refresh_token, PUBLIC_KEY, algorithms=[ALGORITHM])
+        decoded = jwt.decode(incoming_token, PUBLIC_KEY, algorithms=[ALGORITHM])
     except JWTError:
         auth_logger.warning("refresh failed - invalid/malformed token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
@@ -110,7 +130,7 @@ def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get
         auth_logger.warning("refresh failed - wrong token type")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    token_hash = hash_token(payload.refresh_token)
+    token_hash = hash_token(incoming_token)
     stored = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
 
     if not stored:
@@ -147,26 +167,31 @@ def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get
     ))
     db.commit()
 
+    set_refresh_cookie(response, new_refresh)
+
     auth_logger.info(f"refresh success user_id={stored.user_id} family_id={family_id}")
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("5/minute")
-def logout(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
-    token_hash = hash_token(payload.refresh_token)
-    stored = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    incoming_token = request.cookies.get("refresh_token")
+    if incoming_token:
+        token_hash = hash_token(incoming_token)
+        stored = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+        if stored and stored.revoked_at is None:
+            stored.revoked_at = datetime.now(timezone.utc)
+            db.commit()
+            auth_logger.info(f"logout success user_id={stored.user_id}")
 
-    if stored and stored.revoked_at is None:
-        stored.revoked_at = datetime.now(timezone.utc)
-        db.commit()
-        auth_logger.info(f"logout success user_id={stored.user_id}")
-
+    response.delete_cookie(key="refresh_token", path="/auth")
     return None
 
-GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
-GITHUB_CALLBACK_REDIRECT = "http://127.0.0.1:8001/auth/github/callback"
+
+@router.get("/me")
+def me(user_id: str = Depends(verify_access_token)):
+    return {"user_id": user_id}
 
 
 @router.get("/github/login")
@@ -181,7 +206,6 @@ def github_login():
 
 @router.get("/github/callback")
 def github_callback(code: str, db: Session = Depends(get_db)):
-    # Exchange the code for a GitHub access token
     with httpx.Client() as client:
         response = client.post(
             GITHUB_TOKEN_URL,
@@ -199,14 +223,11 @@ def github_callback(code: str, db: Session = Depends(get_db)):
         auth_logger.warning(f"github oauth failed - no token in response: {data}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub OAuth exchange failed")
 
-    # Encrypt before storing
     fernet = Fernet(settings.fernet_key.encode())
     encrypted_token = fernet.encrypt(github_token.encode()).decode()
 
-    # NOTE: this stores the token against a hardcoded test user for now —
-    # once the frontend exists, this will use the currently logged-in user
-    # (via a state param round-tripped through the OAuth flow, tying it to
-    # their session). Flag for Phase 4 wiring.
+    # NOTE: still stubbed against the test user — needs proper state-param wiring
+    # once the frontend sends an authenticated request into /github/login.
     user = db.query(User).filter(User.email == "test@example.com").first()
     if user:
         user.encrypted_github_token = encrypted_token
@@ -214,7 +235,3 @@ def github_callback(code: str, db: Session = Depends(get_db)):
         auth_logger.info(f"github oauth success user_id={user.id}")
 
     return {"message": "GitHub connected successfully"}
-
-@router.get("/me")
-def me(user_id: str = Depends(verify_access_token)):
-    return {"user_id": user_id}
