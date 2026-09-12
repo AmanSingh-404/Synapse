@@ -868,3 +868,28 @@ button {
     transition-duration: .01ms !important;
   }
 }
+
+
+.prose-chat p {
+  margin: 0 0 0.5em 0;
+}
+.prose-chat p:last-child {
+  margin-bottom: 0;
+}
+.prose-chat ol,
+.prose-chat ul {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+.prose-chat li {
+  margin: 0.2em 0;
+}
+.prose-chat strong {
+  font-weight: 600;
+}
+.prose-chat code {
+  background: rgba(80, 54, 232, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
