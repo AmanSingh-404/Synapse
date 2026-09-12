@@ -177,7 +177,15 @@ def list_github_repos(
 
     repos = response.json()
     return [
-        {"name": r["full_name"], "url": r["html_url"], "private": r["private"], "updated_at": r["updated_at"]}
+        {
+            "name": r["full_name"],
+            "url": r["html_url"],
+            "private": r["private"],
+            "updated_at": r["updated_at"],
+            "language": r.get("language"),
+            "stars": r.get("stargazers_count", 0),
+            "forks": r.get("forks_count", 0),
+        }
         for r in repos
     ]
 

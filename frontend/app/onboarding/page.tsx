@@ -17,11 +17,28 @@ import {
   Loader2,
   Circle,
   CheckCircle2,
+  Star,
+  GitFork
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import OnboardingSidebar from "@/components/OnboardingSidebar";
 import AccountMenu from "@/components/AccountMenu";
+
+
+const LANGUAGE_COLORS: Record<string, string> = {
+  Python: "#3572A5",
+  TypeScript: "#3178C6",
+  JavaScript: "#F1E05A",
+  Jupyter: "#DA5B0B",
+  HTML: "#E34C26",
+  CSS: "#563D7C",
+};
+
+function languageColor(lang: string | null): string {
+  if (!lang) return "var(--line)";
+  return LANGUAGE_COLORS[lang] || "var(--muted)";
+}
 
 function GithubIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
   return (
@@ -31,7 +48,7 @@ function GithubIcon({ size = 20, color = "#fff" }: { size?: number; color?: stri
   );
 }
 
-type GithubRepo = { name: string; url: string; private: boolean; updated_at: string };
+type GithubRepo = { name: string; url: string; private: boolean; updated_at: string; language: string | null; stars: number; forks: number };
 
 function TopBar() {
   return (
@@ -193,9 +210,19 @@ function SelectRepoStep({
               >
                 {active && <Check size={13} color="#fff" />}
               </div>
-              <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--ink)" }}>{repo.name}</p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>{repo.private ? "Private" : "Public"}</p>
+                <div className="flex items-center gap-3 text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                  {repo.language && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full" style={{ background: languageColor(repo.language) }} />
+                      {repo.language}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1"><Star size={11} /> {repo.stars}</span>
+                  <span className="flex items-center gap-1"><GitFork size={11} /> {repo.forks}</span>
+                  <span>{repo.private ? "Private" : "Public"}</span>
+                </div>
               </div>
             </button>
           );
