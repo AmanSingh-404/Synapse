@@ -1,174 +1,366 @@
 import Link from "next/link";
+import { Caveat } from "next/font/google";
+import {
+  Sparkles,
+  ChevronDown,
+  Play,
+  Home,
+  MessageSquare,
+  FolderGit2,
+  Share2,
+  Settings,
+  FileText,
+  GitBranch,
+  Send,
+  Search,
+  ZoomIn,
+  Maximize2,
+  Database,
+  Code2,
+  Network,
+  FileCode,
+  ArrowUpRight,
+} from "lucide-react";
 
-function HeroGraph() {
+const caveat = Caveat({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+});
+
+const features = [
+  { icon: Network, title: "Knowledge Graph", body: "Understand real\ncode relationships" },
+  { icon: Sparkles, title: "AI Agent", body: "Plans, searches, and\nreasons across your code" },
+  { icon: Database, title: "Multi-Repo Support", body: "Work across all your\nprojects" },
+  { icon: FileText, title: "Source-Backed Answers", body: "Citations to files, functions,\nand commits" },
+  { icon: Code2, title: "Built for Developers", body: "Modern, fast, and\nopen source friendly" },
+];
+
+function Logo({ size = 34 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 400 340" className="w-full h-auto max-w-md">
-      <g stroke="#D4D4D8" strokeWidth="1.5" fill="none">
-        <line x1="80" y1="60" x2="200" y2="40" />
-        <line x1="200" y1="40" x2="320" y2="90" />
-        <line x1="80" y1="60" x2="60" y2="170" />
-        <line x1="200" y1="40" x2="190" y2="160" />
-        <line x1="320" y1="90" x2="300" y2="200" />
-        <line x1="190" y1="160" x2="60" y2="170" />
-        <line x1="190" y1="160" x2="300" y2="200" />
-        <line x1="60" y1="170" x2="100" y2="280" />
-        <line x1="190" y1="160" x2="180" y2="290" />
-        <line x1="300" y1="200" x2="260" y2="300" />
-        <line x1="100" y1="280" x2="180" y2="290" />
-        <line x1="180" y1="290" x2="260" y2="300" />
-      </g>
-      <g stroke="#4338CA" strokeWidth="2" fill="none">
-        <line x1="200" y1="40" x2="190" y2="160" />
-        <line x1="190" y1="160" x2="180" y2="290" />
-      </g>
-      {[
-        [80, 60], [200, 40], [320, 90], [60, 170],
-        [300, 200], [100, 280], [260, 300],
-      ].map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="5" fill="#FFFFFF" stroke="#A1A1AA" strokeWidth="1.5" />
-      ))}
-      <circle cx="190" cy="160" r="7" fill="#4338CA" />
-      <circle cx="180" cy="290" r="7" fill="#4338CA" />
+    <svg width={size} height={size} viewBox="0 0 34 34" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="4.2" fill="#4F39E8" />
+      <circle cx="26" cy="8" r="4.2" fill="#4F39E8" />
+      <circle cx="17" cy="26" r="4.2" fill="#4F39E8" />
+      <path
+        d="M10.6 10.7 14.9 22M23.4 10.7 19.1 22M12.2 8H21.8"
+        stroke="#4F39E8"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <circle cx="30.5" cy="3.5" r="3" fill="#4F39E8" />
+      <path d="M27.7 5.7 24.8 7.2" stroke="#4F39E8" strokeWidth="1.8" />
     </svg>
+  );
+}
+
+function Arrow({ flip = false, className = "" }: { flip?: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 120 90"
+      className={className}
+      style={{ transform: flip ? "scaleX(-1)" : undefined }}
+      fill="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <marker id={flip ? "arrow-tip-r" : "arrow-tip"} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0 0L8 4L0 8" fill="none" stroke="#5141E9" strokeWidth="1.7" />
+        </marker>
+      </defs>
+      <path
+        d="M5 8 C48 4, 70 28, 92 65"
+        stroke="#5141E9"
+        strokeWidth="2"
+        strokeLinecap="round"
+        markerEnd={`url(#${flip ? "arrow-tip-r" : "arrow-tip"})`}
+      />
+    </svg>
+  );
+}
+
+function GraphNode({
+  label,
+  sub,
+  tone,
+  x,
+  y,
+}: {
+  label: string;
+  sub: string;
+  tone: "blue" | "purple" | "green" | "orange" | "red";
+  x: number;
+  y: number;
+}) {
+  const tones = {
+    blue: { border: "#78A8FF", bg: "#EFF6FF", dot: "#3B82F6" },
+    purple: { border: "#9870FF", bg: "#F5F0FF", dot: "#7C3AED" },
+    green: { border: "#62D5B0", bg: "#EDFCF5", dot: "#10B981" },
+    orange: { border: "#FDB46D", bg: "#FFF6EB", dot: "#F97316" },
+    red: { border: "#FF969C", bg: "#FFF0F1", dot: "#EF4444" },
+  }[tone];
+
+  return (
+    <div
+      className="graph-node"
+      style={{
+        left: x,
+        top: y,
+        borderColor: tones.border,
+        background: tones.bg,
+      }}
+    >
+      <div className="graph-node-title">
+        <span className="node-dot" style={{ background: tones.dot }} />
+        <FileCode size={10} strokeWidth={2.2} />
+        <span>{label}</span>
+      </div>
+      <div className="graph-node-sub">{sub}</div>
+    </div>
+  );
+}
+
+function Graph() {
+  return (
+    <div className="graph-canvas">
+      <svg className="graph-lines" viewBox="0 0 330 292" preserveAspectRatio="none">
+        <defs>
+          <marker id="graph-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0 0L6 3L0 6Z" fill="#98A5BF" />
+          </marker>
+        </defs>
+
+        <path className="graph-line graph-draw-1" d="M166 57 C166 72 166 77 166 96" markerEnd="url(#graph-arrow)" />
+        <path className="graph-line graph-draw-2" d="M166 137 C135 157 100 168 78 177" markerEnd="url(#graph-arrow)" />
+        <path className="graph-line graph-draw-3" d="M166 137 C196 157 232 168 252 177" markerEnd="url(#graph-arrow)" />
+        <path className="graph-line graph-draw-4" d="M76 207 C83 230 94 241 107 252" markerEnd="url(#graph-arrow)" />
+        <path className="graph-line graph-draw-5" d="M252 207 C246 230 237 241 224 252" markerEnd="url(#graph-arrow)" />
+        <path className="graph-line graph-draw-6" d="M84 196 C132 218 198 219 247 196" markerEnd="url(#graph-arrow)" />
+      </svg>
+
+      <GraphNode label="upload.py" sub="/api" tone="blue" x={111} y={12} />
+      <GraphNode label="process_video.py" sub="/services" tone="purple" x={78} y={78} />
+      <GraphNode label="extract_audio.py" sub="/utils" tone="green" x={12} y={148} />
+      <GraphNode label="transcribe.py" sub="/models" tone="orange" x={199} y={148} />
+      <GraphNode label="format.py" sub="/utils" tone="blue" x={12} y={226} />
+      <GraphNode label="save_to_db.py" sub="/database" tone="red" x={199} y={226} />
+    </div>
+  );
+}
+
+function PreviewPanel() {
+  const nav = [
+    { icon: Home, label: "Home", active: true },
+    { icon: MessageSquare, label: "Chat" },
+    { icon: FolderGit2, label: "Repositories" },
+    { icon: Share2, label: "Graph Explorer" },
+    { icon: Settings, label: "Settings" },
+  ];
+
+  return (
+    <div className="preview-wrap">
+      <div className={`${caveat.className} callout callout-left`}>
+        <span>Ask complex<br />questions</span>
+        <Arrow className="callout-arrow-left" />
+      </div>
+
+      <div className={`${caveat.className} callout callout-right`}>
+        <span>Visualize how<br />your code works</span>
+        <Arrow flip className="callout-arrow-right" />
+      </div>
+
+      <div className="preview-card">
+        <aside className="preview-sidebar">
+          <div className="preview-brand">
+            <Logo size={24} />
+            <span>Synapse</span>
+          </div>
+
+          <div className="preview-nav">
+            {nav.map(({ icon: Icon, label, active }) => (
+              <div key={label} className={`preview-nav-item ${active ? "active" : ""}`}>
+                <Icon size={15} />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <main className="preview-chat">
+          <div className="repo-bar">
+            <FileText size={13} />
+            <span>synapse</span>
+            <span className="repo-separator">·</span>
+            <GitBranch size={13} />
+            <span>main</span>
+            <ChevronDown size={12} />
+          </div>
+
+          <div className="question-bubble">
+            How does the video-transcription<br />
+            pipeline work end to end?
+          </div>
+
+          <div className="answer-card">
+            <div className="answer-title">Here&apos;s how it works:</div>
+            <ol>
+              <li><b>Upload:</b> Video is uploaded via FastAPI route <code>/upload</code></li>
+              <li><b>Processing:</b> Passed to process_video()</li>
+              <li><b>Transcription:</b> Audio extracted and sent to Whisper model</li>
+              <li><b>Post-processing:</b> Results cleaned using format.py</li>
+              <li><b>Storage:</b> Final transcript saved to database</li>
+            </ol>
+
+            <div className="related">
+              <span><FolderGit2 size={11} /> Related files (5)</span>
+              <ChevronDown size={11} />
+            </div>
+          </div>
+
+          <div className="chat-input">
+            <span>Ask anything about your codebase...</span>
+            <button aria-label="Send"><Send size={14} /></button>
+          </div>
+        </main>
+
+        <section className="preview-graph">
+          <div className="graph-tabs">
+            <div className="graph-tab-list">
+              <span className="selected">Code Graph</span>
+              <span>Files</span>
+              <span>References</span>
+            </div>
+            <div className="graph-actions">
+              <ZoomIn size={13} />
+              <Search size={13} />
+              <Maximize2 size={13} />
+            </div>
+          </div>
+          <Graph />
+        </section>
+      </div>
+
+      <div className={`${caveat.className} callout callout-bottom`}>
+        <Arrow className="callout-arrow-bottom" />
+        <span>Get accurate,<br />source-backed answers</span>
+      </div>
+    </div>
+  );
+}
+
+function TrustedLogo({
+  children,
+  type,
+}: {
+  children: React.ReactNode;
+  type: string;
+}) {
+  return (
+    <div className="trusted-logo">
+      <span className={`trusted-symbol ${type}`} aria-hidden="true">
+        {type === "github" && "●"}
+        {type === "vercel" && "▲"}
+        {type === "linear" && "◉"}
+        {type === "cursor" && "◇"}
+        {type === "anthropic" && "AI"}
+        {type === "openai" && "◎"}
+      </span>
+      <span>{children}</span>
+    </div>
   );
 }
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(ellipse 800px 400px at 70% -10%, var(--color-accent-soft), transparent)",
-          }}
-        />
-        <div className="max-w-6xl mx-auto px-6 pt-28 pb-24 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div>
-            <p className="text-sm mb-4" style={{ color: "var(--color-accent)" }}>
-              Agentic GraphRAG for your own codebase
-            </p>
-            <h1
-              className="text-4xl md:text-5xl leading-[1.1] mb-6"
-              style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}
-            >
-              Your codebase, wired into a queryable brain.
+    <>
+      <main className="synapse-page">
+        <div className="page-glow" />
+
+        <header className="site-header">
+          <Link href="/" className="brand">
+            <Logo />
+            <span>Synapse</span>
+          </Link>
+
+          <nav className="main-nav">
+            <Link href="#product">Product <ChevronDown size={14} /></Link>
+            <Link href="#features">Features</Link>
+            <Link href="#pricing">Pricing</Link>
+            <Link href="#docs">Docs</Link>
+            <Link href="#blog">Blog</Link>
+          </nav>
+
+          <div className="header-actions">
+            <Link href="/login" className="signin">Sign in</Link>
+            <Link href="/register" className="dark-button">
+              Get Started <span>→</span>
+            </Link>
+          </div>
+        </header>
+
+        <section className="hero" id="product">
+          <div className="hero-copy">
+            <div className="eyebrow">
+              <Sparkles size={13} />
+              Turn Your Codebase into Knowledge
+            </div>
+
+            <h1>
+              Chat with
+              <br />
+              your <span>codebase</span>,
+              <br />
+              like never before.
             </h1>
-            <p className="text-base leading-relaxed mb-10 max-w-md" style={{ color: "var(--color-text-muted)" }}>
-              Synapse connects to your GitHub repos, builds a live knowledge graph of how your
-              code actually fits together, and lets an AI agent answer questions no plain
-              chatbot-over-docs can — with a graph that lights up as it reasons.
+
+            <p>
+              Synapse connects to your GitHub repos, builds a live knowledge
+              graph, and lets an AI agent answer deep questions about your
+              code with real context — not just text search.
             </p>
-            <div className="flex gap-3">
-              <Link
-                href="/register"
-                className="inline-block px-7 py-3 rounded-lg font-medium"
-                style={{ background: "var(--color-accent)", color: "var(--color-accent-text)", fontFamily: "var(--font-display)" }}
-              >
-                Connect GitHub
+
+            <div className="hero-actions">
+              <Link href="/register" className="dark-button hero-button">
+                Get Started <span>→</span>
               </Link>
-              <Link
-                href="/login"
-                className="inline-block px-7 py-3 rounded-lg font-medium"
-                style={{ border: "1px solid var(--color-border)", color: "var(--color-text)" }}
-              >
-                Log in
-              </Link>
+
+              <button className="demo-button">
+                <span className="play-circle"><Play size={13} fill="currentColor" /></span>
+                Watch Demo
+              </button>
             </div>
-          </div>
-          <div className="flex justify-center md:justify-end">
-            <HeroGraph />
-          </div>
-        </div>
-      </section>
 
-      {/* Problem */}
-      <section className="max-w-2xl mx-auto px-6 py-16">
-        <h2 className="text-2xl mb-4" style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}>
-          Most &quot;chat with your codebase&quot; tools are just embeddings wrappers.
-        </h2>
-        <p className="leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
-          They can tell you what a function&apos;s docstring says. They can&apos;t tell you what
-          breaks if you change its signature, trace a request end to end across files, or
-          spot the same pattern reused across three different repos. That requires an actual
-          call graph — not just semantic similarity over text.
-        </p>
-      </section>
+            <div className="fine-print">Free for individual developers. No credit card required.</div>
+          </div>
 
-      {/* How it works */}
-      <section className="max-w-5xl mx-auto px-6 py-20" style={{ borderTop: "1px solid var(--color-border)" }}>
-        <h2 className="text-2xl mb-12" style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}>
-          How it works
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              n: "01",
-              title: "Connect a repo",
-              body: "GitHub OAuth, pick a repo, and Synapse clones and parses it — building both a call/import graph and a semantic index.",
-            },
-            {
-              n: "02",
-              title: "Ask anything",
-              body: "An agent decides per-question whether to traverse the graph, search semantically, or both — then multi-hops if it isn't confident yet.",
-            },
-            {
-              n: "03",
-              title: "Watch it reason",
-              body: "The graph highlights exactly which functions, classes, and files the answer was built from — in real time.",
-            },
-          ].map((step) => (
-            <div key={step.n} className="p-6 rounded-xl" style={{ background: "var(--color-surface)" }}>
-              <div className="text-sm mb-3" style={{ color: "var(--color-accent)", fontFamily: "var(--font-display)" }}>
-                {step.n}
-              </div>
-              <h3 className="font-medium mb-2" style={{ fontFamily: "var(--font-display)" }}>
-                {step.title}
-              </h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
-                {step.body}
-              </p>
+          <div className="hero-preview">
+            <PreviewPanel />
+          </div>
+        </section>
+
+        <section className="feature-strip" id="features">
+          {features.map(({ icon: Icon, title, body }) => (
+            <div className="feature" key={title}>
+              <Icon className="feature-icon" size={28} strokeWidth={1.9} />
+              <h3>{title}</h3>
+              <p>{body}</p>
             </div>
           ))}
-        </div>
-      </section>
+        </section>
 
-      {/* Tech showcase */}
-      <section className="max-w-5xl mx-auto px-6 py-20" style={{ borderTop: "1px solid var(--color-border)" }}>
-        <h2 className="text-2xl mb-4" style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}>
-          A real call graph, not a vector index pretending to be one
-        </h2>
-        <p className="mb-10 max-w-2xl" style={{ color: "var(--color-text-muted)" }}>
-          Neo4j for structure, Weaviate for semantics, LangGraph for routing between them.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {["Neo4j", "Weaviate", "LangGraph", "FastAPI"].map((tech) => (
-            <div
-              key={tech}
-              className="px-4 py-6 rounded-xl text-center text-sm font-medium"
-              style={{ background: "var(--color-surface)", color: "var(--color-text)" }}
-            >
-              {tech}
-            </div>
-          ))}
-        </div>
-      </section>
+        <section className="trusted">
+          <p>Trusted by developers, from indie hackers to engineering teams</p>
+          <div className="trusted-row">
+            <TrustedLogo type="github">GitHub</TrustedLogo>
+            <TrustedLogo type="vercel">Vercel</TrustedLogo>
+            <TrustedLogo type="linear">Linear</TrustedLogo>
+            <TrustedLogo type="cursor">Cursor</TrustedLogo>
+            <TrustedLogo type="anthropic">Anthropic</TrustedLogo>
+            <TrustedLogo type="openai">OpenAI</TrustedLogo>
+          </div>
+        </section>
+      </main>
 
-      {/* CTA */}
-      <section className="max-w-2xl mx-auto px-6 py-24 text-center" style={{ borderTop: "1px solid var(--color-border)" }}>
-        <h2 className="text-2xl mb-6" style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}>
-          Wire up your first repo
-        </h2>
-        <Link
-          href="/register"
-          className="inline-block px-7 py-3 rounded-lg font-medium"
-          style={{ background: "var(--color-accent)", color: "var(--color-accent-text)", fontFamily: "var(--font-display)" }}
-        >
-          Connect GitHub
-        </Link>
-      </section>
-    </div>
+
+    </>
   );
 }
