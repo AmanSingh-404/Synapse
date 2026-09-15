@@ -7,9 +7,9 @@ from langchain_core.output_parsers import StrOutputParser
 from app.config import settings
 from app.agent.tools import graph_query, vector_search
 
-NEO4J_URI = "bolt://127.0.0.1:7688"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "synapse123"
+
+from app.db_clients import get_neo4j_driver
+
 
 EXTRACT_TARGET_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """Given a question about a codebase, extract the single most likely
@@ -60,7 +60,7 @@ def find_closest_node_name(repo_id: str, guessed_name: str) -> str | None:
     Verify the LLM's guessed name actually exists in the graph.
     If not, try a case-insensitive substring match as a fallback.
     """
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    driver = get_neo4j_driver()
     with driver.session() as session:
         # Exact match first
         result = session.run(

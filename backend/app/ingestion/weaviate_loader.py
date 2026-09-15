@@ -1,8 +1,8 @@
 import weaviate
 from sentence_transformers import SentenceTransformer
 from weaviate.util import generate_uuid5
+from app.db_clients import get_weaviate_client
 
-WEAVIATE_URL = "http://127.0.0.1:8081"
 
 _model = None
 
@@ -16,7 +16,7 @@ def get_model():
 
 class WeaviateLoader:
     def __init__(self):
-        self.client = weaviate.connect_to_local(port=8081, grpc_port=50052)
+        self.client = get_weaviate_client()
         self._ensure_collection()
 
     def _ensure_collection(self):

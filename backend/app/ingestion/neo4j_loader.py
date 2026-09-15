@@ -1,13 +1,12 @@
 from neo4j import GraphDatabase
 
-NEO4J_URI = "bolt://127.0.0.1:7688"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "synapse123"
+
+from app.db_clients import get_neo4j_driver
 
 
 class Neo4jLoader:
     def __init__(self):
-        self.driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        self.driver = get_neo4j_driver()
 
     def close(self):
         self.driver.close()

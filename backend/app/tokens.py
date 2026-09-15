@@ -6,15 +6,21 @@ from jose import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
+from app.config import settings
 
 bearer_scheme = HTTPBearer()
 
 
-with open("keys/private.pem", "r") as f:
-    PRIVATE_KEY = f.read()
-
-with open("keys/public.pem", "r") as f:
-    PUBLIC_KEY = f.read()
+if settings.jwt_private_key and settings.jwt_public_key:
+    # Production: keys come from environment variables
+    PRIVATE_KEY = settings.jwt_private_key
+    PUBLIC_KEY = settings.jwt_public_key
+else:
+    # Local dev: keys come from files, same as before
+    with open("keys/private.pem", "r") as f:
+        PRIVATE_KEY = f.read()
+    with open("keys/public.pem", "r") as f:
+        PUBLIC_KEY = f.read()
 
 ALGORITHM = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15

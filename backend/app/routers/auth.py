@@ -22,7 +22,8 @@ from app.config import settings
 
 from app.tokens import create_oauth_state_token, verify_oauth_state_token
 
-FRONTEND_URL = "http://127.0.0.1:3001"
+FRONTEND_URL = settings.frontend_url
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
@@ -33,7 +34,7 @@ REFRESH_TOKEN_EXPIRE_SECONDS = 14 * 24 * 60 * 60  # 14 days, matches tokens.py
 
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
-GITHUB_CALLBACK_REDIRECT = "http://127.0.0.1:8001/auth/github/callback"
+GITHUB_CALLBACK_REDIRECT = f"{settings.backend_url}/auth/github/callback"
 
 
 def hash_token(token: str) -> str:
@@ -45,7 +46,7 @@ def set_refresh_cookie(response: Response, token: str):
         key="refresh_token",
         value=token,
         httponly=True,
-        secure=False,  # True in production (requires HTTPS)
+        secure=settings.environment == "production",
         samesite="lax",
         max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
         path="/auth",

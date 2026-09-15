@@ -19,11 +19,8 @@ from app.ingestion.chunker import extract_chunks
 from app.ingestion.neo4j_loader import Neo4jLoader
 from app.ingestion.weaviate_loader import WeaviateLoader
 
-from neo4j import GraphDatabase
+from app.db_clients import get_neo4j_driver, get_weaviate_client
 
-NEO4J_URI = "bolt://127.0.0.1:7688"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "synapse123"
 
 router = APIRouter(prefix="/repos", tags=["repos"])
 repo_logger = logging.getLogger("synapse.repos")
@@ -200,7 +197,7 @@ def get_repo_graph(
     if not repo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
 
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    driver = get_neo4j_driver()
     nodes = []
     edges = []
 

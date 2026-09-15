@@ -2,9 +2,9 @@ from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
 import weaviate
 
-NEO4J_URI = "bolt://127.0.0.1:7688"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "synapse123"
+
+from app.db_clients import get_neo4j_driver, get_weaviate_client
+
 
 _embed_model = None
 
@@ -22,7 +22,7 @@ def graph_query(repo_id: str, node_name: str, direction: str = "callers") -> lis
     direction: 'callers' (who calls this), 'callees' (what this calls),
                'importers' (what imports this file)
     """
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    driver = get_neo4j_driver()
     results = []
 
     with driver.session() as session:
@@ -60,7 +60,7 @@ def vector_search(repo_id: str, query: str, limit: int = 5) -> list[dict]:
     model = get_embed_model()
     query_vector = model.encode(query).tolist()
 
-    client = weaviate.connect_to_local(port=8081, grpc_port=50052)
+    client = get_weaviate_client()
     collection = client.collections.get("CodeChunk")
 
     from weaviate.classes.query import Filter
