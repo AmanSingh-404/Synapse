@@ -1,17 +1,11 @@
 import weaviate
+# pyrefly: ignore [missing-import]
 from sentence_transformers import SentenceTransformer
 from weaviate.util import generate_uuid5
+# pyrefly: ignore [missing-import]
 from app.db_clients import get_weaviate_client
-
-
-_model = None
-
-
-def get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _model
+# pyrefly: ignore [missing-import]
+from app.embeddings import embed_text
 
 
 class WeaviateLoader:
@@ -35,12 +29,11 @@ class WeaviateLoader:
             )
 
     def load_chunks(self, repo_id: str, chunks: list):
-        model = get_model()
         collection = self.client.collections.get("CodeChunk")
 
         with collection.batch.dynamic() as batch:
             for chunk in chunks:
-                vector = model.encode(chunk["text"]).tolist()
+                vector = embed_text(chunk["text"])
                 batch.add_object(
                     uuid=generate_uuid5(chunk["node_id"]),
                     properties={

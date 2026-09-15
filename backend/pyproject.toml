@@ -28,6 +28,7 @@ dependencies = [
     "sqlalchemy>=2.0.52",
     "uvicorn[standard]>=0.52.4",
     "weaviate-client>=4.23.1",
+    "huggingface-hub>=1.30.0",
 ]
 
 

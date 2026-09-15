@@ -1,19 +1,13 @@
 from neo4j import GraphDatabase
+# pyrefly: ignore [missing-import]
 from sentence_transformers import SentenceTransformer
 import weaviate
 
 
+# pyrefly: ignore [missing-import]
 from app.db_clients import get_neo4j_driver, get_weaviate_client
-
-
-_embed_model = None
-
-
-def get_embed_model():
-    global _embed_model
-    if _embed_model is None:
-        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embed_model
+# pyrefly: ignore [missing-import]
+from app.embeddings import embed_text
 
 
 def graph_query(repo_id: str, node_name: str, direction: str = "callers") -> list[dict]:
@@ -57,8 +51,7 @@ def vector_search(repo_id: str, query: str, limit: int = 5) -> list[dict]:
     """
     Semantic search over docstring chunks for this repo.
     """
-    model = get_embed_model()
-    query_vector = model.encode(query).tolist()
+    query_vector = embed_text(query)
 
     client = get_weaviate_client()
     collection = client.collections.get("CodeChunk")

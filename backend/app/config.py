@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     github_client_secret: str
     fernet_key: str = ""
     groq_api_key: str = ""
+    hf_api_token: str = ""
 
     database_url: str = "postgresql+psycopg2://synapse:synapse@127.0.0.1:5434/synapse"
 
