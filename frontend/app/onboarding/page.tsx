@@ -330,6 +330,12 @@ export default function OnboardingPage() {
     checkGithubStatus();
   }, [loading, userId]);
 
+  useEffect(() => {
+    if (!loading && !userId) {
+      router.push("/login");
+    }
+  }, [loading, userId, router]);
+
   const checkGithubStatus = async () => {
     try {
       const data = await api.listGithubRepos();
