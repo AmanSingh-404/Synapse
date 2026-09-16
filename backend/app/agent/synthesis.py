@@ -1,4 +1,3 @@
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -14,6 +13,7 @@ Be concise and direct, like a senior engineer explaining code to a colleague."""
 
 
 def get_llm():
+    from langchain_groq import ChatGroq
     return ChatGroq(api_key=settings.groq_api_key, model="openai/gpt-oss-120b", temperature=0.2)
 
 
