@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.db import get_db
 from app.models import Repo
 from app.tokens import verify_access_token
-from app.agent.pipeline import run_agent
+# from app.agent.pipeline import run_agent
 
 router = APIRouter(prefix="/query", tags=["query"])
 
@@ -28,6 +28,7 @@ def query(
     user_id: str = Depends(verify_access_token),
     db: Session = Depends(get_db),
 ):
+    from app.agent.pipeline import run_agent
     repo = db.query(Repo).filter(Repo.id == payload.repo_id, Repo.user_id == user_id).first()
     if not repo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")

@@ -1,7 +1,7 @@
-from neo4j import GraphDatabase
+# from neo4j import GraphDatabase
 # pyrefly: ignore [missing-import]
 from sentence_transformers import SentenceTransformer
-import weaviate
+# import weaviate
 
 
 # pyrefly: ignore [missing-import]

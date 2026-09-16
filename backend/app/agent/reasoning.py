@@ -1,6 +1,6 @@
 import json
 from neo4j import GraphDatabase
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -46,6 +46,7 @@ to answer the question. Respond with ONLY valid JSON in this exact format:
 
 
 def get_llm():
+    from langchain_groq import ChatGroq
     return ChatGroq(api_key=settings.groq_api_key, model="openai/gpt-oss-120b", temperature=0)
 
 

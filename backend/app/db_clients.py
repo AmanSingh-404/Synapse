@@ -1,15 +1,15 @@
-from neo4j import GraphDatabase
-import weaviate
-from weaviate.classes.init import Auth
-
 from app.config import settings
 
 
 def get_neo4j_driver():
+    from neo4j import GraphDatabase
     return GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password))
 
 
 def get_weaviate_client():
+    import weaviate
+    from weaviate.classes.init import Auth
+
     if settings.weaviate_url:
         return weaviate.connect_to_weaviate_cloud(
             cluster_url=settings.weaviate_url,

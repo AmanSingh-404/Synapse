@@ -1,9 +1,13 @@
-from app.agent.router import classify_intent
-from app.agent.reasoning import run_reasoning
-from app.agent.synthesis import synthesize_answer, collect_touched_node_ids
+# from app.agent.router import classify_intent
+# from app.agent.reasoning import run_reasoning
+# from app.agent.synthesis import synthesize_answer, collect_touched_node_ids
 
 
 def run_agent(question: str, repo_id: str) -> dict:
+    from app.agent.router import classify_intent
+    from app.agent.reasoning import run_reasoning
+    from app.agent.synthesis import synthesize_answer, collect_touched_node_ids
+    
     intent = classify_intent(question)
     reasoning_result = run_reasoning(question, repo_id, intent)
 

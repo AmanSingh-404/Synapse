@@ -1,4 +1,4 @@
-import weaviate
+# import weaviate
 # pyrefly: ignore [missing-import]
 from sentence_transformers import SentenceTransformer
 from weaviate.util import generate_uuid5

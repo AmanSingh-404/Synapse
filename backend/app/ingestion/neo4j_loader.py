@@ -1,4 +1,4 @@
-from neo4j import GraphDatabase
+# from neo4j import GraphDatabase
 
 
 from app.db_clients import get_neo4j_driver

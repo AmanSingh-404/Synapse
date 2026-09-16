@@ -1,26 +1,16 @@
 import os
 import uuid
-import shutil
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet
-from git import Repo as GitRepo, GitCommandError
 from pydantic import BaseModel
 
 from app.db import get_db
 from app.models import User, Repo
 from app.tokens import verify_access_token
 from app.config import settings
-
-from app.ingestion.python_parser import parse_repo
-from app.ingestion.chunker import extract_chunks
-from app.ingestion.neo4j_loader import Neo4jLoader
-from app.ingestion.weaviate_loader import WeaviateLoader
-
-from app.db_clients import get_neo4j_driver, get_weaviate_client
-
 
 router = APIRouter(prefix="/repos", tags=["repos"])
 repo_logger = logging.getLogger("synapse.repos")
@@ -38,6 +28,8 @@ def connect_repo(
     user_id: str = Depends(verify_access_token),
     db: Session = Depends(get_db),
 ):
+    from git import Repo as GitRepo, GitCommandError
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.encrypted_github_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub account connected")
@@ -51,7 +43,6 @@ def connect_repo(
 
     os.makedirs(WORKSPACE_ROOT, exist_ok=True)
 
-    # Inject the token into the clone URL for private repo access
     clone_url = payload.github_url.replace("https://", f"https://{github_token}@")
 
     repo_record = Repo(
@@ -80,6 +71,44 @@ def connect_repo(
     return {"repo_id": str(repo_id), "name": repo_name, "status": "cloned"}
 
 
+@router.get("/github/list")
+def list_github_repos(
+    user_id: str = Depends(verify_access_token),
+    db: Session = Depends(get_db),
+):
+    import httpx
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.encrypted_github_token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub account connected")
+
+    fernet = Fernet(settings.fernet_key.encode())
+    github_token = fernet.decrypt(user.encrypted_github_token.encode()).decode()
+
+    with httpx.Client() as client:
+        response = client.get(
+            "https://api.github.com/user/repos",
+            headers={"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github+json"},
+            params={"sort": "updated", "per_page": 30},
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch repos from GitHub")
+
+    repos = response.json()
+    return [
+        {
+            "name": r["full_name"],
+            "url": r["html_url"],
+            "private": r["private"],
+            "updated_at": r["updated_at"],
+            "language": r.get("language"),
+            "stars": r.get("stargazers_count", 0),
+            "forks": r.get("forks_count", 0),
+        }
+        for r in repos
+    ]
+
 
 @router.post("/{repo_id}/ingest")
 def ingest_repo(
@@ -87,6 +116,11 @@ def ingest_repo(
     user_id: str = Depends(verify_access_token),
     db: Session = Depends(get_db),
 ):
+    from app.ingestion.python_parser import parse_repo
+    from app.ingestion.chunker import extract_chunks
+    from app.ingestion.neo4j_loader import Neo4jLoader
+    from app.ingestion.weaviate_loader import WeaviateLoader
+
     repo = db.query(Repo).filter(Repo.id == repo_id, Repo.user_id == user_id).first()
     if not repo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
@@ -95,19 +129,16 @@ def ingest_repo(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Repo is currently '{repo.status}'")
 
     try:
-        # Stage 1: parsing
         repo.status = "parsing"
         db.commit()
         nodes, edges = parse_repo(repo.local_path, repo_id)
 
-        # Stage 2: graph build
         repo.status = "building_graph"
         db.commit()
         neo4j_loader = Neo4jLoader()
         neo4j_loader.load_repo(repo_id, nodes, edges)
         neo4j_loader.close()
 
-        # Stage 3: embedding
         repo.status = "embedding"
         db.commit()
         chunks = extract_chunks(nodes)
@@ -115,7 +146,6 @@ def ingest_repo(
         weaviate_loader.load_chunks(repo_id, chunks)
         weaviate_loader.close()
 
-        # Done
         repo.status = "indexed"
         repo.node_count = len(nodes)
         repo.edge_count = len(edges)
@@ -149,43 +179,6 @@ def get_repo_status(
         "edge_count": repo.edge_count,
     }
 
-@router.get("/github/list")
-def list_github_repos(
-    user_id: str = Depends(verify_access_token),
-    db: Session = Depends(get_db),
-):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.encrypted_github_token:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub account connected")
-
-    fernet = Fernet(settings.fernet_key.encode())
-    github_token = fernet.decrypt(user.encrypted_github_token.encode()).decode()
-
-    import httpx
-    with httpx.Client() as client:
-        response = client.get(
-            "https://api.github.com/user/repos",
-            headers={"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github+json"},
-            params={"sort": "updated", "per_page": 30},
-        )
-
-    if response.status_code != 200:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch repos from GitHub")
-
-    repos = response.json()
-    return [
-        {
-            "name": r["full_name"],
-            "url": r["html_url"],
-            "private": r["private"],
-            "updated_at": r["updated_at"],
-            "language": r.get("language"),
-            "stars": r.get("stargazers_count", 0),
-            "forks": r.get("forks_count", 0),
-        }
-        for r in repos
-    ]
-
 
 @router.get("/{repo_id}/graph")
 def get_repo_graph(
@@ -193,6 +186,8 @@ def get_repo_graph(
     user_id: str = Depends(verify_access_token),
     db: Session = Depends(get_db),
 ):
+    from app.db_clients import get_neo4j_driver
+
     repo = db.query(Repo).filter(Repo.id == repo_id, Repo.user_id == user_id).first()
     if not repo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repo not found")
@@ -231,6 +226,7 @@ def get_repo_graph(
 
     driver.close()
     return {"nodes": nodes, "edges": edges}
+
 
 @router.get("")
 def list_repos(

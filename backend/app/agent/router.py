@@ -1,4 +1,4 @@
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -17,6 +17,7 @@ Respond with ONLY one word: structural, semantic, or hybrid. No explanation.""")
 
 
 def get_router_chain():
+    from langchain_groq import ChatGroq
     llm = ChatGroq(api_key=settings.groq_api_key, model="openai/gpt-oss-120b", temperature=0)
     return ROUTER_PROMPT | llm | StrOutputParser()
 
