@@ -1,10 +1,6 @@
-# import weaviate
-# pyrefly: ignore [missing-import]
-from sentence_transformers import SentenceTransformer
 from weaviate.util import generate_uuid5
-# pyrefly: ignore [missing-import]
+
 from app.db_clients import get_weaviate_client
-# pyrefly: ignore [missing-import]
 from app.embeddings import embed_text
 
 
@@ -14,6 +10,8 @@ class WeaviateLoader:
         self._ensure_collection()
 
     def _ensure_collection(self):
+        import weaviate
+
         if not self.client.collections.exists("CodeChunk"):
             self.client.collections.create(
                 name="CodeChunk",
