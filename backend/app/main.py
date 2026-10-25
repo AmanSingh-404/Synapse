@@ -15,7 +15,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://127.0.0.1:3001", "http://localhost:3001"],
+    allow_origins=[
+        settings.frontend_url,
+        "https://synapse-a6dfocx8q-aman-singhs-projects-c5acb175.vercel.app",
+        "http://127.0.0.1:3001",
+        "http://localhost:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
